@@ -13,8 +13,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-username/ItchWHMMCP"
-Issues = "https://github.com/your-username/ItchWHMMCP/issues"
+Homepage = "https://github.com/manofsadness/ItchWHMMCP"
+Issues = "https://github.com/manofsadness/ItchWHMMCP/issues"
 
 [project.scripts]
 itchwhmmcp = "server:main"
