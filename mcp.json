@@ -1,0 +1,9 @@
+{
+  "name": "ItchWHMMCP",
+  "version": "1.0.0",
+  "description": "WHM/cPanel MCP Server — Multi-Account Root Access",
+  "transport": "stdio",
+  "command": "python",
+  "args": ["src/server.py"],
+  "env": {}
+}

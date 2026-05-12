@@ -1,0 +1,30 @@
+{
+  "_comment": "Copy this file to accounts.json and fill in your real WHM credentials. Never commit accounts.json to version control.",
+
+  "my-server": {
+    "host": "your-server-hostname-or-ip.com",
+    "port": 2087,
+    "user": "root",
+    "token": "YOUR_WHM_API_TOKEN_HERE",
+    "type": "whm",
+    "label": "My Main Server"
+  },
+
+  "client-production": {
+    "host": "client-server.com",
+    "port": 2087,
+    "user": "root",
+    "token": "CLIENT_API_TOKEN_HERE",
+    "type": "whm",
+    "label": "Client Production Server"
+  },
+
+  "client-staging": {
+    "host": "staging.client-server.com",
+    "port": 2087,
+    "user": "root",
+    "token": "STAGING_API_TOKEN_HERE",
+    "type": "whm",
+    "label": "Client Staging Server"
+  }
+}
