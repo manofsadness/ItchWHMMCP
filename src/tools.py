@@ -2,6 +2,7 @@
 Tool definitions and handlers for WHM (root) and cPanel (account-level) operations.
 """
 
+import ipaddress
 import httpx
 from mcp.types import Tool
 
@@ -61,6 +62,68 @@ async def _post(client: httpx.AsyncClient, url: str, headers: dict, data: dict =
             "error": str(e),
             "status_code": e.response.status_code,
             "response": e.response.text[:1000],
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def _safe_limit(value: int | str | None, default: int = 15, maximum: int = 50) -> int:
+    try:
+        limit = int(value or default)
+    except (TypeError, ValueError):
+        limit = default
+    return max(1, min(limit, maximum))
+
+
+def _validate_ip(value: str) -> str:
+    return str(ipaddress.ip_address(value))
+
+
+def _clean_comment(value: str | None) -> str:
+    if not value:
+        return "managed by ItchWHMMCP"
+    return "".join(ch for ch in value if ch.isalnum() or ch in " ._:@/-")[:120]
+
+
+async def _ssh_run(account: dict, command: str, timeout: int = 20) -> dict:
+    try:
+        import asyncssh
+    except ImportError:
+        return {
+            "error": "SSH tools require optional dependency 'asyncssh'. Install it with: pip install asyncssh"
+        }
+
+    ssh_host = account.get("ssh_host") or account.get("host")
+    ssh_user = account.get("ssh_user", account.get("user", "root"))
+    ssh_port = int(account.get("ssh_port", 22))
+    ssh_key_path = account.get("ssh_key_path")
+    known_hosts = account.get("ssh_known_hosts", None)
+
+    if not account.get("ssh_enabled", False):
+        return {
+            "error": "SSH tools are disabled for this account. Set ssh_enabled=true and configure SSH fields in accounts.json."
+        }
+
+    connect_kwargs = {
+        "host": ssh_host,
+        "port": ssh_port,
+        "username": ssh_user,
+        "known_hosts": known_hosts,
+        "connect_timeout": int(account.get("ssh_connect_timeout", 10)),
+    }
+    if ssh_key_path:
+        connect_kwargs["client_keys"] = [ssh_key_path]
+    if account.get("ssh_password"):
+        connect_kwargs["password"] = account["ssh_password"]
+
+    try:
+        async with asyncssh.connect(**connect_kwargs) as conn:
+            result = await conn.run(command, check=False, timeout=timeout)
+        return {
+            "command": command,
+            "exit_status": result.exit_status,
+            "stdout": result.stdout.strip(),
+            "stderr": result.stderr.strip(),
         }
     except Exception as e:
         return {"error": str(e)}
@@ -291,6 +354,135 @@ def whm_tools() -> list[Tool]:
                 "type": "object",
                 "properties": ACCOUNT_PARAM,
                 "required": ["account"]
+            }
+        ),
+        Tool(
+            name="whm_cphulk_failed_logins",
+            description="List recent cPHulk failed login entries",
+            inputSchema={
+                "type": "object",
+                "properties": ACCOUNT_PARAM,
+                "required": ["account"]
+            }
+        ),
+        Tool(
+            name="whm_cphulk_brutes",
+            description="List cPHulk brute force attack entries",
+            inputSchema={
+                "type": "object",
+                "properties": ACCOUNT_PARAM,
+                "required": ["account"]
+            }
+        ),
+        Tool(
+            name="whm_cphulk_excessive_brutes",
+            description="List cPHulk excessive brute force attack entries",
+            inputSchema={
+                "type": "object",
+                "properties": ACCOUNT_PARAM,
+                "required": ["account"]
+            }
+        ),
+        Tool(
+            name="whm_cphulk_user_brutes",
+            description="List cPHulk brute force entries grouped by target user",
+            inputSchema={
+                "type": "object",
+                "properties": ACCOUNT_PARAM,
+                "required": ["account"]
+            }
+        ),
+        Tool(
+            name="whm_cphulk_unblock_ip",
+            description="Remove cPHulk login history blocks for an IP address",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    **ACCOUNT_PARAM,
+                    "ip": {"type": "string", "description": "IPv4 or IPv6 address to unblock"}
+                },
+                "required": ["account", "ip"]
+            }
+        ),
+        Tool(
+            name="server_top_processes",
+            description="SSH read-only diagnostic: show top processes by CPU or memory",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    **ACCOUNT_PARAM,
+                    "sort_by": {"type": "string", "enum": ["cpu", "mem"], "description": "Sort by cpu or mem"},
+                    "limit": {"type": "integer", "description": "Number of processes to return, max 50"}
+                },
+                "required": ["account"]
+            }
+        ),
+        Tool(
+            name="server_resource_snapshot",
+            description="SSH read-only diagnostic: uptime, memory, disk, and top CPU processes",
+            inputSchema={
+                "type": "object",
+                "properties": ACCOUNT_PARAM,
+                "required": ["account"]
+            }
+        ),
+        Tool(
+            name="csf_status",
+            description="SSH read-only CSF diagnostic: show CSF version/status and firewall rules summary",
+            inputSchema={
+                "type": "object",
+                "properties": ACCOUNT_PARAM,
+                "required": ["account"]
+            }
+        ),
+        Tool(
+            name="csf_check_ip",
+            description="SSH read-only CSF diagnostic: search CSF rules for an IP address",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    **ACCOUNT_PARAM,
+                    "ip": {"type": "string", "description": "IPv4 or IPv6 address to search"}
+                },
+                "required": ["account", "ip"]
+            }
+        ),
+        Tool(
+            name="csf_allow_ip",
+            description="Allow an IP address in CSF. Confirm with the user before using.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    **ACCOUNT_PARAM,
+                    "ip": {"type": "string", "description": "IPv4 or IPv6 address to allow"},
+                    "comment": {"type": "string", "description": "Reason/comment for the allow entry"}
+                },
+                "required": ["account", "ip"]
+            }
+        ),
+        Tool(
+            name="csf_deny_ip",
+            description="Deny/block an IP address in CSF. Confirm with the user before using.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    **ACCOUNT_PARAM,
+                    "ip": {"type": "string", "description": "IPv4 or IPv6 address to deny"},
+                    "comment": {"type": "string", "description": "Reason/comment for the deny entry"}
+                },
+                "required": ["account", "ip"]
+            }
+        ),
+        Tool(
+            name="csf_remove_ip",
+            description="Remove an IP address from CSF allow, deny, and temporary lists. Confirm with the user before using.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    **ACCOUNT_PARAM,
+                    "ip": {"type": "string", "description": "IPv4 or IPv6 address to remove"}
+                },
+                "required": ["account", "ip"]
             }
         ),
     ]
@@ -524,6 +716,53 @@ async def handle_whm_tool(client: httpx.AsyncClient, account: dict, name: str, a
 
         case "whm_backup_list":
             return await _get(client, url("backup_set_up_config"), headers)
+
+        case "whm_cphulk_failed_logins":
+            return await _get(client, url("get_cphulk_failed_logins"), headers)
+
+        case "whm_cphulk_brutes":
+            return await _get(client, url("get_cphulk_brutes"), headers)
+
+        case "whm_cphulk_excessive_brutes":
+            return await _get(client, url("get_cphulk_excessive_brutes"), headers)
+
+        case "whm_cphulk_user_brutes":
+            return await _get(client, url("get_cphulk_user_brutes"), headers)
+
+        case "whm_cphulk_unblock_ip":
+            return await _get(client, url("flush_cphulk_login_history_for_ips"), headers, {"ip": _validate_ip(args["ip"])})
+
+        case "server_top_processes":
+            limit = _safe_limit(args.get("limit"))
+            sort = args.get("sort_by", "cpu")
+            sort_key = "-%mem" if sort == "mem" else "-%cpu"
+            command = f"ps -eo pid,user,pcpu,pmem,stat,comm,args --sort={sort_key} | head -n {limit + 1}"
+            return await _ssh_run(account, command)
+
+        case "server_resource_snapshot":
+            command = "uptime && free -m && df -h / /home /tmp 2>/dev/null && ps -eo pid,user,pcpu,pmem,stat,comm,args --sort=-%cpu | head -n 11"
+            return await _ssh_run(account, command)
+
+        case "csf_status":
+            command = "csf -v && csf -l | head -n 80"
+            return await _ssh_run(account, command)
+
+        case "csf_check_ip":
+            command = f"csf -g {_validate_ip(args['ip'])}"
+            return await _ssh_run(account, command)
+
+        case "csf_allow_ip":
+            command = f"csf -a {_validate_ip(args['ip'])} '{_clean_comment(args.get('comment'))}'"
+            return await _ssh_run(account, command)
+
+        case "csf_deny_ip":
+            command = f"csf -d {_validate_ip(args['ip'])} '{_clean_comment(args.get('comment'))}'"
+            return await _ssh_run(account, command)
+
+        case "csf_remove_ip":
+            ip = _validate_ip(args["ip"])
+            command = f"csf -tr {ip}; csf -ar {ip}; csf -dr {ip}"
+            return await _ssh_run(account, command)
 
         case _:
             return {"error": f"Unknown WHM tool: {name}"}

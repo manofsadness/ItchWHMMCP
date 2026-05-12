@@ -66,7 +66,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         return [TextContent(type="text", text=f"ERROR: Account '{account_alias}' not found. Use list_accounts to see configured accounts.")]
 
     async with httpx.AsyncClient(verify=False, timeout=30) as client:
-        if name.startswith("whm_"):
+        if name.startswith(("whm_", "server_", "csf_")):
             result = await handle_whm_tool(client, account, name, arguments)
         elif name.startswith("cpanel_"):
             result = await handle_cpanel_tool(client, account, name, arguments)

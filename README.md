@@ -31,6 +31,8 @@ A local Model Context Protocol (MCP) server for managing WHM and cPanel servers 
 | Bandwidth | Usage per account or server-wide |
 | SSL | List installed certificates |
 | Services | Check and restart Apache, MySQL, Exim, FTP |
+| Diagnostics | Load averages, optional SSH process snapshots, memory, and disk checks |
+| Security | cPHulk brute-force reports/unblock actions, optional CSF firewall checks and IP allow/deny/remove |
 | Email | List and create mailboxes, list forwarders |
 | Disk | Server-wide and per-account disk usage |
 | Cron Jobs | List scheduled tasks per cPanel account |
@@ -74,7 +76,7 @@ python -m venv .venv
 ### 3. Install dependencies
 
 ```bash
-pip install mcp httpx
+pip install mcp httpx asyncssh
 ```
 
 ---
@@ -121,6 +123,32 @@ Edit `accounts.json` with your own server details:
 ```
 
 Never commit `accounts.json`, API tokens, real hostnames, IP addresses, client names, or production account aliases.
+
+### Optional SSH Diagnostics and CSF
+
+WHM API tokens can handle normal WHM/cPanel actions and cPHulk reporting. Live process diagnostics and CSF firewall management require SSH because they run fixed root-level commands such as `ps`, `free`, `df`, and `csf`.
+
+Add these fields to an account only if you want those tools enabled:
+
+```json
+{
+  "primary-server": {
+    "host": "server.example.com",
+    "port": 2087,
+    "user": "root",
+    "token": "YOUR_WHM_API_TOKEN_HERE",
+    "type": "whm",
+    "ssh_enabled": true,
+    "ssh_host": "server.example.com",
+    "ssh_port": 22,
+    "ssh_user": "root",
+    "ssh_key_path": "C:\\Users\\you\\.ssh\\id_ed25519",
+    "ssh_known_hosts": null
+  }
+}
+```
+
+The MCP does not expose arbitrary shell execution. SSH tools use fixed commands with validated inputs.
 
 ---
 
@@ -258,6 +286,17 @@ What cron jobs does user demo have on primary-server?
 ```
 
 Confirm the target server and account before running write operations such as account creation, suspension, termination, password changes, or service restarts.
+
+Security and diagnostics examples:
+
+```text
+Show top CPU processes on primary-server
+Show a resource snapshot for primary-server
+List recent cPHulk failed logins on primary-server
+Check whether 203.0.113.10 is blocked in CSF on primary-server
+Allow 203.0.113.10 in CSF on primary-server
+Remove 203.0.113.10 from CSF on primary-server
+```
 
 ---
 

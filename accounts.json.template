@@ -7,7 +7,14 @@
     "user": "root",
     "token": "YOUR_WHM_API_TOKEN_HERE",
     "type": "whm",
-    "label": "My Main Server"
+    "label": "My Main Server",
+    "_ssh_comment": "Optional. Required only for server_top_processes, server_resource_snapshot, and CSF tools.",
+    "ssh_enabled": false,
+    "ssh_host": "your-server-hostname-or-ip.com",
+    "ssh_port": 22,
+    "ssh_user": "root",
+    "ssh_key_path": "C:\\Users\\you\\.ssh\\id_ed25519",
+    "ssh_known_hosts": null
   },
 
   "client-production": {
