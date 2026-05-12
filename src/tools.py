@@ -26,25 +26,42 @@ def _headers(account: dict) -> dict:
     token = account["token"]
     user = account.get("user", "root")
     return {
-        "Authorization": f"whm {user}:{token}",
-        "Content-Type": "application/json"
+        "Authorization": f"whm {user}:{token}"
     }
 
 
 async def _get(client: httpx.AsyncClient, url: str, headers: dict, params: dict = None) -> dict:
     try:
-        r = await client.get(url, headers=headers, params=params or {})
+        kwargs = {"headers": headers}
+        if params is not None:
+            kwargs["params"] = params
+        r = await client.get(url, **kwargs)
         r.raise_for_status()
         return r.json()
+    except httpx.HTTPStatusError as e:
+        return {
+            "error": str(e),
+            "status_code": e.response.status_code,
+            "response": e.response.text[:1000],
+        }
     except Exception as e:
         return {"error": str(e)}
 
 
 async def _post(client: httpx.AsyncClient, url: str, headers: dict, data: dict = None) -> dict:
     try:
-        r = await client.post(url, headers=headers, json=data or {})
+        kwargs = {"headers": headers}
+        if data is not None:
+            kwargs["json"] = data
+        r = await client.post(url, **kwargs)
         r.raise_for_status()
         return r.json()
+    except httpx.HTTPStatusError as e:
+        return {
+            "error": str(e),
+            "status_code": e.response.status_code,
+            "response": e.response.text[:1000],
+        }
     except Exception as e:
         return {"error": str(e)}
 

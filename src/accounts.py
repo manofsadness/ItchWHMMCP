@@ -48,4 +48,5 @@ def load_accounts() -> dict:
 
 def get_account(alias: str) -> dict | None:
     accounts = load_accounts()
-    return accounts.get(alias)
+    account = accounts.get(alias)
+    return account if isinstance(account, dict) else None

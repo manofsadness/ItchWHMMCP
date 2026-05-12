@@ -53,6 +53,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         result = [
             {"alias": a, "host": cfg["host"], "type": cfg.get("type","whm")}
             for a, cfg in accounts.items()
+            if isinstance(cfg, dict) and not a.startswith("_")
         ]
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
